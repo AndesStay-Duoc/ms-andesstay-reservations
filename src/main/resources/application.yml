@@ -1,0 +1,65 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: ms-andesstay-reservations
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/andesstay?useSSL=true&serverTimezone=UTC}
+    username: ${SPRING_DATASOURCE_USERNAME:}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
+    driver-class-name: com.mysql.cj.jdbc.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    database-platform: org.hibernate.dialect.MySQLDialect
+    open-in-view: false
+
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:}
+    password: ${RABBITMQ_PASS:}
+    virtual-host: andesstay
+    listener:
+      simple:
+        acknowledge-mode: manual
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      acks: all
+      retries: 3
+
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: https://login.microsoftonline.com/${AZURE_TENANT_ID}/v2.0
+          jwk-set-uri: https://login.microsoftonline.com/${AZURE_TENANT_ID}/discovery/v2.0/keys
+
+andesstay:
+  azure:
+    client-id: ${AZURE_CLIENT_ID}
+  catalog:
+    base-url: ${CATALOG_BASE_URL:http://catalog-svc:8082}
+  rabbitmq:
+    exchange-direct: cmd.direct
+    exchange-topic: cmd.topic
+    queue:
+      email: q.cmd.email
+      housekeeping: q.cmd.housekeeping
+      voucher: q.cmd.voucher
+  kafka:
+    topic:
+      reservations-events: reservations.events
+
+logging:
+  level:
+    cl.andesstay: DEBUG
+    org.springframework.security: INFO
