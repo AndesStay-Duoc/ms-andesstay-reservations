@@ -71,7 +71,7 @@ public class ReservationController {
     }
 
     private String extractRole(Jwt jwt) {
-        List<String> roles = jwt.getClaimAsList("roles");
+        List<String> roles = jwt.getClaimAsStringList("roles");
         if (roles != null && !roles.isEmpty()) return roles.get(0);
         return "Cliente";
     }
