@@ -7,8 +7,8 @@ spring:
 
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:mysql://localhost:3306/andesstay?useSSL=true&serverTimezone=UTC}
-    username: ${SPRING_DATASOURCE_USERNAME:andesstay}
-    password: ${SPRING_DATASOURCE_PASSWORD:andesstay_pass}
+    username: ${SPRING_DATASOURCE_USERNAME:}
+    password: ${SPRING_DATASOURCE_PASSWORD:}
     driver-class-name: com.mysql.cj.jdbc.Driver
 
   jpa:
@@ -21,8 +21,8 @@ spring:
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USER:andesstay}
-    password: ${RABBITMQ_PASS:andesstay_pass}
+    username: ${RABBITMQ_USER:}
+    password: ${RABBITMQ_PASS:}
     virtual-host: andesstay
     listener:
       simple:
