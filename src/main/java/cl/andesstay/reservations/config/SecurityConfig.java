@@ -8,8 +8,8 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
+import cl.andesstay.reservations.security.AzureRolesConverter;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
-import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
@@ -37,16 +37,13 @@ public class SecurityConfig {
 
     /**
      * Convierte el claim "roles" del JWT de Azure AD en GrantedAuthorities
-     * con prefijo ROLE_ para que @PreAuthorize("hasRole('Admin')") funcione.
+     * con prefijo ROLE_ para que @PreAuthorize("hasRole('Admin')") funcione,
+     * y otorga ROLE_Cliente a los huéspedes autoregistrados (ver AzureRolesConverter).
      */
     @Bean
     public JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtGrantedAuthoritiesConverter converter = new JwtGrantedAuthoritiesConverter();
-        converter.setAuthoritiesClaimName("roles");
-        converter.setAuthorityPrefix("ROLE_");
-
         JwtAuthenticationConverter jwtConverter = new JwtAuthenticationConverter();
-        jwtConverter.setJwtGrantedAuthoritiesConverter(converter);
+        jwtConverter.setJwtGrantedAuthoritiesConverter(new AzureRolesConverter());
         return jwtConverter;
     }
 }
