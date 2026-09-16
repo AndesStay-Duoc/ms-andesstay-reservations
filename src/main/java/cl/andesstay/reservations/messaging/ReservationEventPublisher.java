@@ -22,11 +22,28 @@ public class ReservationEventPublisher {
     private String reservationsTopic;
 
     /**
+     * Permite desplegar sin broker de Kafka. En la instancia EC2 no se levantan
+     * Kafka ni RabbitMQ, y aunque kafkaTemplate.send() es asíncrono, la llamada
+     * bloquea hasta max.block.ms mientras busca la metadata del clúster: sin
+     * esta guarda, cada cambio de estado de una reserva quedaría esperando.
+     *
+     * Con el valor en true (por defecto) el comportamiento no cambia.
+     */
+    @Value("${andesstay.events.enabled:true}")
+    private boolean eventsEnabled;
+
+    /**
      * Publica un evento de cambio de estado de reserva en Kafka.
      * Los consumidores son ms-andesstay-audit y ms-andesstay-report.
      */
     public void publishReservationEvent(Reservation reservation, String eventType,
                                         String actorId, String actorRole) {
+        if (!eventsEnabled) {
+            log.debug("[Kafka] Publicación desactivada (andesstay.events.enabled=false); evento {} de la reserva {} omitido",
+                    eventType, reservation.getId());
+            return;
+        }
+
         var event = Map.of(
                 "eventId",       UUID.randomUUID().toString(),
                 "eventType",     eventType,           // CREATED, CONFIRMED, CHECKIN, CHECKOUT, CANCELLED

@@ -35,6 +35,12 @@ spring:
       value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
       acks: all
       retries: 3
+      properties:
+        # Sin broker alcanzable, send() bloquea buscando la metadata del clúster.
+        # El valor por defecto son 60 s, que dejaría colgada la petición HTTP.
+        # Es una red de seguridad por si se reactiva andesstay.events.enabled sin
+        # haber levantado Kafka.
+        max.block.ms: 2000
 
   security:
     oauth2:
@@ -49,6 +55,13 @@ spring:
             - ${AZURE_CLIENT_ID:704a544f-3d92-44f5-aef9-8559574cff34}
 
 andesstay:
+  # Publicación de eventos hacia Kafka y RabbitMQ.
+  #
+  # El despliegue en EC2 no levanta brokers, así que lo pone en false: las
+  # reservas se persisten en MySQL con normalidad y las publicaciones se omiten.
+  # En local queda en true y el flujo asíncrono completo funciona igual que antes.
+  events:
+    enabled: ${ANDESSTAY_EVENTS_ENABLED:true}
   azure:
     client-id: ${AZURE_CLIENT_ID:704a544f-3d92-44f5-aef9-8559574cff34}
   catalog:

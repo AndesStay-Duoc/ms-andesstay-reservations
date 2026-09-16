@@ -28,6 +28,12 @@
       <artifactId>spring-boot-starter-web</artifactId>
     </dependency>
 
+    <!-- Actuator: expone /actuator/health para el healthcheck del contenedor -->
+    <dependency>
+      <groupId>org.springframework.boot</groupId>
+      <artifactId>spring-boot-starter-actuator</artifactId>
+    </dependency>
+
     <!-- Security + OAuth2 Resource Server (JWT Azure AD) -->
     <dependency>
       <groupId>org.springframework.boot</groupId>
