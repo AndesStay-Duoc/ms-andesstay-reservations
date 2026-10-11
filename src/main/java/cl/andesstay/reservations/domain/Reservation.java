@@ -31,6 +31,9 @@ public class Reservation {
     @Column(name = "CHECK_OUT", nullable = false)
     private LocalDate checkOut;
 
+    @Column(name = "HUESPEDES", nullable = false)
+    private Integer huespedes;
+
     @Enumerated(EnumType.STRING)
     @Column(name = "STATUS", nullable = false, length = 30)
     private ReservationStatus status;
@@ -47,11 +50,27 @@ public class Reservation {
     @Column(name = "CREATED_BY", length = 100)
     private String createdBy;            // usuario que creó (sub JWT)
 
+    /**
+     * Agrupa todos los eventos y mensajes del ciclo de vida de esta reserva.
+     *
+     * Es campo obligatorio del envelope común. Se genera al crear y se reutiliza en cada evento
+     * posterior, así que basta filtrar por él para armar el timeline completo. No confundir con el
+     * traceId, que cambia en cada petición HTTP. Ver
+     * infra/docs/contracts/events/envelope.md.
+     */
+    @Column(name = "CORRELATION_ID", length = 36, updatable = false)
+    private String correlationId;
+
     @PrePersist
     protected void onCreate() {
         createdAt = LocalDateTime.now();
         updatedAt = LocalDateTime.now();
         if (status == null) status = ReservationStatus.CREADA;
+        // Las reservas anteriores a este campo no lo traen; una persona es el minimo razonable.
+        if (huespedes == null) huespedes = 1;
+        // Red de seguridad: el servicio ya lo asigna al crear, pero una reserva sin correlationId
+        // dejaría mensajes imposibles de correlacionar, y el campo es obligatorio en el contrato.
+        if (correlationId == null) correlationId = java.util.UUID.randomUUID().toString();
     }
 
     @PreUpdate

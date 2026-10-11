@@ -23,10 +23,21 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:}
     password: ${RABBITMQ_PASS:}
-    virtual-host: andesstay
-    listener:
-      simple:
-        acknowledge-mode: manual
+    virtual-host: ${RABBITMQ_VHOST:andesstay}
+
+    # Publisher confirms y returns. Sin esto la publicación es "dispara y olvida" desde el punto de
+    # vista del broker: un mensaje con una routing key sin binding se descarta en silencio y este
+    # servicio nunca se entera. Los callbacks están en config/RabbitMQConfig.java.
+    #
+    # Se usa el modo "correlated" y no "simple" porque el publicador adjunta un CorrelationData con
+    # el eventId: así un nack del broker dice QUÉ mensaje rechazó.
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+
+    # Ya no se declara listener.simple.acknowledge-mode: este servicio no tiene ningún
+    # @RabbitListener, así que la propiedad no hacía nada.
 
   kafka:
     bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
@@ -55,24 +66,29 @@ spring:
             - ${AZURE_CLIENT_ID:704a544f-3d92-44f5-aef9-8559574cff34}
 
 andesstay:
-  # Publicación de eventos hacia Kafka y RabbitMQ.
+  # Publicación de eventos. Una bandera POR BROKER, no una compartida.
   #
-  # El despliegue en EC2 no levanta brokers, así que lo pone en false: las
-  # reservas se persisten en MySQL con normalidad y las publicaciones se omiten.
-  # En local queda en true y el flujo asíncrono completo funciona igual que antes.
+  # Antes había una sola, andesstay.events.enabled, y eso ataba los dos: activar las colas de
+  # RabbitMQ revivía el productor de Kafka contra un clúster que no existe, sumando los 2 s de
+  # max.block.ms a cada escritura de reserva y llenando el log de errores.
   events:
-    enabled: ${ANDESSTAY_EVENTS_ENABLED:true}
+    rabbit:
+      enabled: ${ANDESSTAY_EVENTS_RABBIT_ENABLED:true}
+    kafka:
+      # En false hasta que el clúster de Kafka exista. Las reservas se persisten en MySQL con
+      # normalidad y report y audit siguen sirviendo lo que ya tengan.
+      enabled: ${ANDESSTAY_EVENTS_KAFKA_ENABLED:false}
   azure:
     client-id: ${AZURE_CLIENT_ID:704a544f-3d92-44f5-aef9-8559574cff34}
   catalog:
     base-url: ${CATALOG_BASE_URL:http://catalog-svc:8082}
   rabbitmq:
+    # Los tres exchanges se declaran en config/RabbitMQConfig.java. Las colas y los bindings los
+    # declara ms-andesstay-notify, que es quien consume: una cola declarada dos veces con
+    # argumentos distintos falla con PRECONDITION_FAILED.
     exchange-direct: cmd.direct
     exchange-topic: cmd.topic
-    queue:
-      email: q.cmd.email
-      housekeeping: q.cmd.housekeeping
-      voucher: q.cmd.voucher
+    exchange-dlx: cmd.dead.dlx
   kafka:
     topic:
       reservations-events: reservations.events

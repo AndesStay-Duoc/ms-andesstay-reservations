@@ -22,14 +22,17 @@ public class ReservationEventPublisher {
     private String reservationsTopic;
 
     /**
-     * Permite desplegar sin broker de Kafka. En la instancia EC2 no se levantan
-     * Kafka ni RabbitMQ, y aunque kafkaTemplate.send() es asíncrono, la llamada
-     * bloquea hasta max.block.ms mientras busca la metadata del clúster: sin
-     * esta guarda, cada cambio de estado de una reserva quedaría esperando.
+     * Permite desplegar sin broker de Kafka. Aunque kafkaTemplate.send() es asíncrono, la llamada
+     * bloquea hasta max.block.ms mientras busca la metadata del clúster: sin esta guarda, cada
+     * cambio de estado de una reserva quedaría esperando.
      *
-     * Con el valor en true (por defecto) el comportamiento no cambia.
+     * La bandera es específica de Kafka y por omisión está en FALSE. Antes era la misma
+     * andesstay.events.enabled que gobierna RabbitMQ, y eso ataba los dos brokers: activar las
+     * colas revivía este productor contra un Kafka que no existe, añadiendo los 2 s de
+     * max.block.ms a cada escritura de reserva y llenando el log de errores. Kafka se activa
+     * cuando su clúster exista, de forma independiente.
      */
-    @Value("${andesstay.events.enabled:true}")
+    @Value("${andesstay.events.kafka.enabled:false}")
     private boolean eventsEnabled;
 
     /**
@@ -39,7 +42,7 @@ public class ReservationEventPublisher {
     public void publishReservationEvent(Reservation reservation, String eventType,
                                         String actorId, String actorRole) {
         if (!eventsEnabled) {
-            log.debug("[Kafka] Publicación desactivada (andesstay.events.enabled=false); evento {} de la reserva {} omitido",
+            log.debug("[Kafka] Publicación desactivada (andesstay.events.kafka.enabled=false); evento {} de la reserva {} omitido",
                     eventType, reservation.getId());
             return;
         }
