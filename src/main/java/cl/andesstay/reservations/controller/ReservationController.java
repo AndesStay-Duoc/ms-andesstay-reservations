@@ -57,19 +57,40 @@ public class ReservationController {
         return ResponseEntity.ok(service.findById(id));
     }
 
-    /** GET /api/reservations?status=&from=&to= */
+    /**
+     * GET /api/reservations?status=&from=&to=
+     *
+     * El Cliente tambien puede llamarla, pero recibe SOLO las suyas: se filtra por el sub de su
+     * token y los parametros de busqueda se ignoran. Antes el rol quedaba fuera, de modo que la
+     * pantalla "Reservas" se le abria en el frontend para terminar en un 403. Quien decide no es
+     * el parametro, es el rol, asi que un huesped no puede pedir las de otro.
+     */
     @GetMapping
-    @PreAuthorize("hasAnyRole('Admin', 'Operador')")
+    @PreAuthorize("hasAnyRole('Admin', 'Operador', 'Cliente')")
     public ResponseEntity<List<Reservation>> search(
             @RequestParam(required = false) ReservationStatus status,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate from,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to) {
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate to,
+            JwtAuthenticationToken authentication) {
+
+        if ("Cliente".equals(actorRole(authentication))) {
+            return ResponseEntity.ok(service.searchPropias(authentication.getToken().getSubject()));
+        }
         return ResponseEntity.ok(service.search(status, from, to));
     }
 
-    /** PUT /api/reservations/{id}/status */
+    /**
+     * PUT /api/reservations/{id}/status
+     *
+     * El Cliente entra aqui solo si la reserva es SUYA, y el servicio ademas le limita a que la
+     * unica transicion posible sea CANCELADA desde CREADA. Son dos comprobaciones distintas y las
+     * dos hacen falta: esta decide si puede tocar la reserva, la del servicio decide que puede
+     * hacer con ella. Es la transicion 3 y la regla 5 del contrato de estados, que hasta ahora el
+     * sistema prometia y no cumplia.
+     */
     @PutMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('Admin', 'Operador')")
+    @PreAuthorize("hasAnyRole('Admin', 'Operador') or " +
+                  "(hasRole('Cliente') and @reservationSecurity.isOwner(#id, authentication))")
     public ResponseEntity<Reservation> changeStatus(@PathVariable Long id,
                                                     @RequestBody Map<String, String> body,
                                                     JwtAuthenticationToken authentication) {
