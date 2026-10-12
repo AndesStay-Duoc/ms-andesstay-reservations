@@ -19,26 +19,33 @@ import java.util.UUID;
  * Publica los tres comandos de RabbitMQ del caso. Los consume ms-andesstay-notify.
  *
  * A diferencia de los eventos de Kafka, que cuentan lo que ya ocurrió, estos son comandos en
- * imperativo: piden que algo se haga. De ahí los nombres email.send, housekeeping.ticket y
- * voucher.gen, que son también las routing keys. Ver
- * infra/docs/contracts/events/rabbit.md.
+ * imperativo: piden que algo se haga. El contrato hace que el nombre de cada comando (el "type"
+ * del envelope) sea también su routing key. Ver infra/docs/contracts/events/rabbit.md.
+ *
+ * El exchange y las tres routing keys salen de andesstay.rabbitmq en application.yml; aquí no hay
+ * ningún nombre de RabbitMQ escrito a mano.
  */
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class NotificationPublisher {
 
-    public static final String TYPE_EMAIL = "email.send";
-    public static final String TYPE_HOUSEKEEPING = "housekeeping.ticket";
-    public static final String TYPE_VOUCHER = "voucher.gen";
-
     private static final String SOURCE = "ms-andesstay-reservations";
     private static final String MONEDA = "CLP";
 
     private final RabbitTemplate rabbitTemplate;
 
-    @Value("${andesstay.rabbitmq.exchange-direct}")
+    @Value("${andesstay.rabbitmq.exchange.direct}")
     private String directExchange;
+
+    @Value("${andesstay.rabbitmq.routing.email-send}")
+    private String tipoEmail;
+
+    @Value("${andesstay.rabbitmq.routing.housekeeping-ticket}")
+    private String tipoHousekeeping;
+
+    @Value("${andesstay.rabbitmq.routing.voucher-gen}")
+    private String tipoVoucher;
 
     /**
      * Permite desplegar sin broker de RabbitMQ. A diferencia de Kafka, aquí convertAndSend() es
@@ -79,7 +86,7 @@ public class NotificationPublisher {
         payload.put("reservationId", reserva.getId());
         payload.put("datos", datosDeLaReserva(reserva));
 
-        publicar(TYPE_EMAIL, reserva, actor, traceId, payload);
+        publicar(tipoEmail, reserva, actor, traceId, payload);
     }
 
     /**
@@ -108,7 +115,7 @@ public class NotificationPublisher {
         payload.put("fechaRequerida", fechaRequerida == null ? null : fechaRequerida.toString());
         payload.put("notas", notas(reserva));
 
-        publicar(TYPE_HOUSEKEEPING, reserva, actor, traceId, payload);
+        publicar(tipoHousekeeping, reserva, actor, traceId, payload);
     }
 
     /**
@@ -127,7 +134,7 @@ public class NotificationPublisher {
         payload.put("destinatario", reserva.getGuestEmail());
         payload.put("datos", datosDeLaReserva(reserva));
 
-        publicar(TYPE_VOUCHER, reserva, actor, traceId, payload);
+        publicar(tipoVoucher, reserva, actor, traceId, payload);
     }
 
     // ── Interno ──────────────────────────────────────────────────────────────
