@@ -84,9 +84,14 @@ public class ReservationService {
      *
      * Existe porque un Cliente no puede usar la búsqueda general: vería las reservas de todos. Sin
      * esto, la pantalla «Reservas» del frontend se le abría para terminar en un 403.
+     *
+     * Incluye las que recepción creó a su correo sin cuenta asociada: ver findPropias.
+     *
+     * @param guestId sub del token del Cliente
+     * @param email   correo del token, o null si no trae ninguno (entonces solo cuenta el sub)
      */
-    public List<Reservation> searchPropias(String guestId) {
-        return repository.findByGuestId(guestId);
+    public List<Reservation> searchPropias(String guestId, String email) {
+        return repository.findPropias(guestId, email);
     }
 
     /** Cambia el estado según la máquina de estados. */

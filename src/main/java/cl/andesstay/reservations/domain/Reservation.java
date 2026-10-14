@@ -16,8 +16,16 @@ public class Reservation {
     @SequenceGenerator(name = "res_seq", sequenceName = "SEQ_RESERVATIONS", allocationSize = 1)
     private Long id;
 
-    @Column(name = "GUEST_ID", nullable = false)
-    private String guestId;              // sub del JWT Azure AD
+    /**
+     * sub del JWT de Azure AD del huésped. Lo fija el controlador cuando reserva un Cliente.
+     *
+     * Es NULL cuando recepción reserva a nombre de alguien: el backend no conoce su cuenta, que
+     * puede ni existir. Esa reserva se reconoce por guestEmail (ver ReservationSecurity y
+     * ReservationRepository.findPropias). Antes la columna era NOT NULL y esas reservas fallaban
+     * al guardarse; AjusteDeEsquema relaja la columna en las bases que ya existían.
+     */
+    @Column(name = "GUEST_ID")
+    private String guestId;
 
     @Column(name = "GUEST_EMAIL", nullable = false)
     private String guestEmail;
