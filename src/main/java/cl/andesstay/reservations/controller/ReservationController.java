@@ -1,5 +1,7 @@
 package cl.andesstay.reservations.controller;
 
+import cl.andesstay.reservations.ApiPaths;
+
 import cl.andesstay.reservations.domain.Reservation;
 import cl.andesstay.reservations.domain.ReservationStatus;
 import cl.andesstay.reservations.service.ReservationService;
@@ -23,7 +25,7 @@ import java.util.Map;
 import java.util.Set;
 
 @RestController
-@RequestMapping("/api/reservations")
+@RequestMapping(ApiPaths.RESERVATIONS)
 @RequiredArgsConstructor
 public class ReservationController {
 

@@ -54,7 +54,7 @@ public class CatalogClient {
     public Unidad obtenerUnidad(Long unitId) {
         try {
             return webClient.get()
-                    .uri("/api/catalog/units/{id}", unitId)
+                    .uri("/api/v1/catalog/units/{id}", unitId)
                     .headers(this::propagarToken)
                     .retrieve()
                     .bodyToMono(Unidad.class)
@@ -74,7 +74,7 @@ public class CatalogClient {
     public void reservarCupo(Long unitId, LocalDate desde, LocalDate hasta, String holdId) {
         try {
             webClient.post()
-                    .uri(uri -> uri.path("/api/catalog/internal/units/{id}/hold")
+                    .uri(uri -> uri.path("/api/v1/catalog/internal/units/{id}/hold")
                             .queryParam("from", desde)
                             .queryParam("to", hasta)
                             .queryParam("holdId", holdId)
@@ -104,7 +104,7 @@ public class CatalogClient {
     public void liberarCupo(String holdId) {
         try {
             webClient.post()
-                    .uri("/api/catalog/internal/holds/{holdId}/release", holdId)
+                    .uri("/api/v1/catalog/internal/holds/{holdId}/release", holdId)
                     .headers(this::propagarToken)
                     .retrieve()
                     .toBodilessEntity()
