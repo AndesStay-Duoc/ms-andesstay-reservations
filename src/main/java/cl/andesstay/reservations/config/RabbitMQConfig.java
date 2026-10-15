@@ -34,19 +34,19 @@ public class RabbitMQConfig {
 
     @Bean
     public DirectExchange cmdDirectExchange(
-            @Value("${andesstay.rabbitmq.exchange-direct}") String nombre) {
+            @Value("${andesstay.rabbitmq.exchange.direct}") String nombre) {
         return new DirectExchange(nombre, true, false);
     }
 
     @Bean
     public TopicExchange cmdTopicExchange(
-            @Value("${andesstay.rabbitmq.exchange-topic}") String nombre) {
+            @Value("${andesstay.rabbitmq.exchange.topic}") String nombre) {
         return new TopicExchange(nombre, true, false);
     }
 
     @Bean
     public DirectExchange cmdDeadLetterExchange(
-            @Value("${andesstay.rabbitmq.exchange-dlx}") String nombre) {
+            @Value("${andesstay.rabbitmq.exchange.dlx}") String nombre) {
         return new DirectExchange(nombre, true, false);
     }
 

@@ -83,12 +83,23 @@ andesstay:
   catalog:
     base-url: ${CATALOG_BASE_URL:http://catalog-svc:8082}
   rabbitmq:
+    # Mismo esquema y mismos nombres que andesstay.rabbitmq en ms-andesstay-notify: son la única
+    # fuente de los nombres en este servicio; el código los lee de aquí.
+    #
     # Los tres exchanges se declaran en config/RabbitMQConfig.java. Las colas y los bindings los
     # declara ms-andesstay-notify, que es quien consume: una cola declarada dos veces con
     # argumentos distintos falla con PRECONDITION_FAILED.
-    exchange-direct: cmd.direct
-    exchange-topic: cmd.topic
-    exchange-dlx: cmd.dead.dlx
+    exchange:
+      direct: cmd.direct
+      topic: cmd.topic
+      dlx: cmd.dead.dlx
+    # Routing keys de los tres comandos. El contrato (infra/docs/contracts/events/rabbit.md) las
+    # hace iguales al campo "type" del envelope, así que el publicador usa el mismo valor para los
+    # dos.
+    routing:
+      email-send: email.send
+      housekeeping-ticket: housekeeping.ticket
+      voucher-gen: voucher.gen
   kafka:
     topic:
       reservations-events: reservations.events
