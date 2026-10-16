@@ -4,6 +4,7 @@ import cl.andesstay.reservations.ApiPaths;
 
 import cl.andesstay.reservations.domain.Reservation;
 import cl.andesstay.reservations.domain.ReservationStatus;
+import cl.andesstay.reservations.security.CorreoDelToken;
 import cl.andesstay.reservations.service.ReservationService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,7 +16,6 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.authority.AuthorityUtils;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
-import org.springframework.util.StringUtils;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
 
@@ -46,6 +46,11 @@ public class ReservationController {
         if (actorRole.equals("Cliente")) {
             reservation.setGuestId(actorId);
             reservation.setGuestEmail(guestEmail(jwt));
+        } else if (reservation.getGuestEmail() != null) {
+            // Recepción reserva a nombre de un tercero: no hay sub, así que el correo es lo que
+            // después le permite al huésped ver y cancelar esta reserva. Sin espacios sobrantes,
+            // o la comparación con el correo de su token fallaría.
+            reservation.setGuestEmail(reservation.getGuestEmail().trim());
         }
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(service.create(reservation, actorId, actorRole));
@@ -76,7 +81,8 @@ public class ReservationController {
             JwtAuthenticationToken authentication) {
 
         if ("Cliente".equals(actorRole(authentication))) {
-            return ResponseEntity.ok(service.searchPropias(authentication.getToken().getSubject()));
+            Jwt jwt = authentication.getToken();
+            return ResponseEntity.ok(service.searchPropias(jwt.getSubject(), CorreoDelToken.de(jwt)));
         }
         return ResponseEntity.ok(service.search(status, from, to));
     }
@@ -122,13 +128,9 @@ public class ReservationController {
      * un invitado tiene la forma usuario_gmail.com#EXT#@tenant y no sirve).
      */
     private static String guestEmail(Jwt jwt) {
-        String email = jwt.getClaimAsString("email");
-        if (StringUtils.hasText(email)) {
+        String email = CorreoDelToken.de(jwt);
+        if (email != null) {
             return email;
-        }
-        String username = jwt.getClaimAsString("preferred_username");
-        if (StringUtils.hasText(username) && username.contains("@") && !username.contains("#EXT#")) {
-            return username;
         }
         throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                 "El token no trae el correo del huésped: falta el claim opcional email en el access token.");

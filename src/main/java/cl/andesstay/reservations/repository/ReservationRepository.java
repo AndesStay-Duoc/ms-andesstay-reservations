@@ -15,6 +15,23 @@ public interface ReservationRepository extends JpaRepository<Reservation, Long> 
 
     List<Reservation> findByGuestId(String guestId);
 
+    /**
+     * Reservas de un huésped: las que llevan su sub y las que recepción creó a su correo sin
+     * cuenta asociada (guestId NULL).
+     *
+     * El correo solo cuenta cuando guestId es NULL. Una reserva que ya tiene dueño con cuenta
+     * nunca se entrega a otra cuenta, aunque comparta el correo. Mismo criterio que
+     * ReservationSecurity.esDuenio, que decide si puede verla o cancelarla.
+     */
+    @Query("""
+        SELECT r FROM Reservation r
+        WHERE r.guestId = :sub
+           OR (r.guestId IS NULL AND :email IS NOT NULL
+               AND LOWER(r.guestEmail) = LOWER(:email))
+        ORDER BY r.createdAt DESC
+    """)
+    List<Reservation> findPropias(@Param("sub") String sub, @Param("email") String email);
+
     @Query("""
         SELECT r FROM Reservation r
         WHERE (:status IS NULL OR r.status = :status)
