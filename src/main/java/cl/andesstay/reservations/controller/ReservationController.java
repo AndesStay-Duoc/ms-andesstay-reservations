@@ -103,8 +103,12 @@ public class ReservationController {
                                                     @RequestBody Map<String, String> body,
                                                     JwtAuthenticationToken authentication) {
         ReservationStatus newStatus = ReservationStatus.valueOf(body.get("status"));
+        // "motivo" es opcional y aditivo: los clientes que ya existian siguen mandando solo
+        // "status" y funcionan igual. Solo se usa al cancelar, que es la unica transicion en la
+        // que el contrato de eventos pide una razon.
+        String motivo = body.get("motivo");
         return ResponseEntity.ok(
-                service.changeStatus(id, newStatus, authentication.getToken().getSubject(),
+                service.changeStatus(id, newStatus, motivo, authentication.getToken().getSubject(),
                         actorRole(authentication))
         );
     }

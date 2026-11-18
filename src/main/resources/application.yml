@@ -40,18 +40,10 @@ spring:
     # @RabbitListener, así que la propiedad no hacía nada.
 
   kafka:
+    # Lo único que se configura aquí es dónde está el clúster. Serializers, acks, idempotencia,
+    # batching, compresión y max.block.ms viven en config/KafkaProducerConfig.java, comentados uno
+    # a uno: son decisiones de diseño del productor y no parámetros de entorno.
     bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
-      acks: all
-      retries: 3
-      properties:
-        # Sin broker alcanzable, send() bloquea buscando la metadata del clúster.
-        # El valor por defecto son 60 s, que dejaría colgada la petición HTTP.
-        # Es una red de seguridad por si se reactiva andesstay.events.enabled sin
-        # haber levantado Kafka.
-        max.block.ms: 2000
 
   security:
     oauth2:
@@ -101,8 +93,12 @@ andesstay:
       housekeeping-ticket: housekeeping.ticket
       voucher-gen: voucher.gen
   kafka:
-    topic:
+    # Plural, igual que en ms-andesstay-audit y ms-andesstay-report. Antes este servicio decía
+    # "topic" en singular y los otros dos "topics": el mismo valor con dos nombres distintos, que
+    # es la clase de divergencia que solo se descubre cuando algo deja de leerse.
+    topics:
       reservations-events: reservations.events
+      audit-timeline: audit.timeline
 
 logging:
   level:
