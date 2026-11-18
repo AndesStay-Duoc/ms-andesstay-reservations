@@ -61,7 +61,9 @@ public class ReservationService {
         // servicio ya lo enviaba y quitarlo dejaría al huésped sin señal de que su solicitud llegó.
         notificationPublisher.sendEmail(saved, "RESERVA_RECIBIDA", actor, traceId);
 
-        eventPublisher.publishReservationEvent(saved, "CREATED", actorId, actorRole);
+        // Sin estado anterior: la reserva acaba de nacer. El tipo del evento lo deriva el
+        // publicador del estado, asi que aqui no se escribe ningun literal.
+        eventPublisher.publishReservationEvent(saved, null, null, actor, traceId);
 
         log.info("Reserva #{} creada por actor={} huespedes={} total={} correlationId={}",
                 saved.getId(), actorId, saved.getHuespedes(), saved.getTotalPrice(),
@@ -94,9 +96,16 @@ public class ReservationService {
         return repository.findPropias(guestId, email);
     }
 
-    /** Cambia el estado según la máquina de estados. */
+    /**
+     * Cambia el estado según la máquina de estados.
+     *
+     * @param motivo razón de la cancelación, opcional y solo tenida en cuenta al cancelar. Viaja
+     *               en el evento de Kafka porque el contrato lo pide y porque una cancelación sin
+     *               motivo deja la auditoría a medias: se ve que alguien canceló, no por qué.
+     */
     @Transactional
-    public Reservation changeStatus(Long id, ReservationStatus newStatus, String actorId, String actorRole) {
+    public Reservation changeStatus(Long id, ReservationStatus newStatus, String motivo,
+                                    String actorId, String actorRole) {
         Reservation reservation = findById(id);
 
         // El estado anterior se captura ANTES de mutar la entidad.
@@ -155,11 +164,17 @@ public class ReservationService {
             }
         }
 
-        eventPublisher.publishReservationEvent(updated, newStatus.name(), actorId, actorRole);
+        eventPublisher.publishReservationEvent(updated, estadoAnterior, motivo, actor, traceId);
 
         log.info("Reserva #{} pasó de {} a {} por actor={} correlationId={}",
                 updated.getId(), estadoAnterior, newStatus, actorId, updated.getCorrelationId());
         return updated;
+    }
+
+    /** Cambio de estado sin motivo, que es el caso de todas las transiciones salvo la cancelación. */
+    @Transactional
+    public Reservation changeStatus(Long id, ReservationStatus newStatus, String actorId, String actorRole) {
+        return changeStatus(id, newStatus, null, actorId, actorRole);
     }
 
     // ── Interno ──────────────────────────────────────────────────────────────
