@@ -55,8 +55,7 @@ Se accede siempre a través del BFF. Ver
 
 | Destino | Cuándo |
 |---|---|
-| Kafka `reservations.events` | En cada transición de estado |
-| Kafka `audit.timeline` | En cada transición, con quién, qué, cuándo y desde dónde |
+| Kafka `reservations.events` | En cada transición de estado, si `ANDESSTAY_EVENTS_KAFKA_ENABLED=true` |
 | RabbitMQ `email.send` y `voucher.gen` | Al confirmar |
 | RabbitMQ `housekeeping.ticket` | Al pasar a `CHECKIN_PENDIENTE` y al hacer checkout |
 
@@ -64,6 +63,18 @@ Todos los mensajes usan el
 [envelope común](https://github.com/AndesStay-Duoc/infra/blob/develop/docs/contracts/events/envelope.md).
 El `correlationId` se genera al crear la reserva y se reutiliza en todos sus eventos, así que
 filtrar por él reconstruye el timeline completo.
+
+`audit.timeline` no lo escribe este servicio: lo deriva la topología de Kafka Streams de
+`ms-andesstay-audit` a partir de `reservations.events`.
+
+### La bandera de Kafka
+
+`andesstay.events.kafka.enabled` (variable `ANDESSTAY_EVENTS_KAFKA_ENABLED`) vale `false` por
+defecto en `application.yml`, y se deja así a propósito: permite arrancar el servicio con
+`./mvnw spring-boot:run` sin ningún clúster, sin que cada reserva espere el `max.block.ms` del
+productor ni que `KafkaAdmin` llene el log de avisos. Los compose de `infra` que levantan el
+servicio junto al clúster (`apps/compose.yml` y `deploy/compose.yml`) la ponen en `true`. La de
+RabbitMQ, `ANDESSTAY_EVENTS_RABBIT_ENABLED`, es independiente.
 
 ## Stack
 
@@ -78,7 +89,8 @@ Spring Security como resource server.
 | `DB_USER` | Usuario del esquema `RESERVATIONS` |
 | `DB_PASSWORD` | Contraseña del esquema |
 | `SVC_CATALOG_URL` | URL de `ms-andesstay-catalog` |
-| `KAFKA_BOOTSTRAP_SERVERS` | Lista de brokers |
+| `KAFKA_BOOTSTRAP` | Lista de brokers |
+| `ANDESSTAY_EVENTS_KAFKA_ENABLED` | Publica en Kafka. `false` por defecto; ver "La bandera de Kafka" |
 | `RABBITMQ_HOST` · `RABBITMQ_PORT` | Clúster RabbitMQ |
 | `JWT_ISSUER` | Issuer del tenant |
 | `JWT_AUDIENCE_STAFF` · `JWT_AUDIENCE_GUEST` | Audiences de cada aplicación |
