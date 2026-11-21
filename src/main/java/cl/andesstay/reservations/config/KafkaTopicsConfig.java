@@ -44,9 +44,11 @@ import java.time.Duration;
  *
  * LAS POLITICAS DE RETENCION son distintas porque los dos temas responden preguntas distintas.
  * reservations.events es un registro de hechos que alimenta reportes recientes: siete dias bastan
- * y pasado ese plazo se borra. audit.timeline es el historial de quien hizo que: se compacta, de
- * modo que el ultimo evento de cada reserva se conserva aunque hayan pasado los treinta dias, y lo
- * que caduca es solo lo intermedio.
+ * y pasado ese plazo se borra. audit.timeline es el flujo de quien hizo que, con compact,delete y
+ * treinta dias: delete pone el techo y borra todo lo que supere los treinta dias, tambien el ultimo
+ * evento de cada reserva; compact reduce cada reserva a su evento mas reciente dentro de esa
+ * ventana. El historial completo no se guarda en Kafka sino en AUDIT_EVENTS, que escribe
+ * ms-andesstay-audit. El detalle esta en infra/docs/contracts/events/kafka.md.
  */
 @Configuration
 @ConditionalOnProperty(name = "andesstay.events.kafka.enabled", havingValue = "true")
