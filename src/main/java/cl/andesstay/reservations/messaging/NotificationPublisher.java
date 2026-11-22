@@ -3,10 +3,13 @@ package cl.andesstay.reservations.messaging;
 import cl.andesstay.reservations.domain.Reservation;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.rabbit.connection.CorrelationData;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.time.Instant;
 import java.time.LocalDate;
@@ -49,8 +52,10 @@ public class NotificationPublisher {
 
     /**
      * Permite desplegar sin broker de RabbitMQ. A diferencia de Kafka, aquí convertAndSend() es
-     * SÍNCRONO: sin broker lanza AmqpConnectException y la petición HTTP que lo originó termina en
-     * 500. Ese es el motivo por el que la guarda es imprescindible y no una optimización.
+     * SÍNCRONO: sin broker lanza AmqpConnectException. Dentro de una transacción el envío va
+     * después del commit y ese fallo solo deja un ERROR en el log (ver enviarTrasElCommit); fuera
+     * de ella, la llamada que lo originó falla. En los dos casos, sin broker cada comando es un
+     * error: la guarda es lo que permite desplegar sin RabbitMQ sin llenar el log.
      *
      * La bandera es específica de RabbitMQ. Antes había una sola, andesstay.events.enabled,
      * compartida con el publicador de Kafka: activarla para tener colas revivía el productor de
@@ -142,10 +147,56 @@ public class NotificationPublisher {
     private void publicar(String type, Reservation reserva, Actor actor, String traceId,
                           Map<String, Object> payload) {
         String eventId = UUID.randomUUID().toString();
+        // El envelope se arma AHORA, con los datos de la reserva en este instante; lo único que se
+        // difiere es el envío.
         Map<String, Object> envelope = envelope(type, eventId, reserva, actor, traceId, payload);
+        Long reservationId = reserva.getId();
 
+        // DESPUÉS DEL COMMIT, NO ANTES. Antes el comando salía en mitad de la transacción de la
+        // reserva. Si algo fallaba después —en la prueba de punta a punta fue el productor de
+        // Kafka—, la reserva se revertía pero el comando ya estaba en el broker, y notify le
+        // mandaba al huésped "Reserva recibida" de una reserva que no existe. Registrado para
+        // afterCommit, un rollback lo descarta sin que salga nada.
+        //
+        // Sin transacción activa (un test, una llamada fuera de @Transactional) se envía en el
+        // acto, como siempre.
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    enviarTrasElCommit(type, reservationId, eventId, traceId, envelope);
+                }
+            });
+            log.debug("[RabbitMQ] {} de la reserva {} queda para después del commit eventId={}",
+                    type, reservationId, eventId);
+        } else {
+            enviar(type, reservationId, eventId, traceId, envelope);
+        }
+    }
+
+    /**
+     * El envío una vez confirmada la reserva.
+     *
+     * Un fallo aquí NO se propaga, a propósito. La reserva ya está guardada: propagar la excepción
+     * convertiría en 500 una operación que sí ocurrió, y el cliente, al reintentar, crearía una
+     * reserva duplicada. Lo que se pierde es el comando, y por eso queda en el log como ERROR con su
+     * eventId y su traceId, que es lo que hace falta para reenviarlo a mano.
+     */
+    private void enviarTrasElCommit(String type, Long reservationId, String eventId, String traceId,
+                                    Map<String, Object> envelope) {
+        try {
+            enviar(type, reservationId, eventId, traceId, envelope);
+        } catch (AmqpException e) {
+            log.error("[RabbitMQ] No se pudo publicar {} de la reserva {} tras el commit: la reserva "
+                            + "existe y el comando se perdió. eventId={} traceId={} causa={}",
+                    type, reservationId, eventId, traceId, e.getMessage());
+        }
+    }
+
+    private void enviar(String type, Long reservationId, String eventId, String traceId,
+                        Map<String, Object> envelope) {
         log.info("[RabbitMQ] Publicando {} → reserva={} eventId={} traceId={}",
-                type, reserva.getId(), eventId, traceId);
+                type, reservationId, eventId, traceId);
 
         // La routing key coincide con el type: el contrato las hizo iguales a propósito, porque el
         // binding directo de cada cola es exactamente el nombre del comando.
