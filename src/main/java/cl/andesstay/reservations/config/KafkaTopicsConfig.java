@@ -15,9 +15,19 @@ import java.time.Duration;
  * POR QUE AQUI SI YA LOS CREA EL COMPOSE. El contenedor kafka-init de infra/kafka/compose.yml crea
  * los temas al levantar el clúster, pero eso solo sirve en el entorno que usa ese compose. Con
  * KafkaAdmin, cualquier despliegue del servicio contra cualquier clúster deja los temas con la
- * forma correcta, y la forma correcta queda escrita junto al codigo que la necesita en lugar de en
- * un script. Las dos vias son idempotentes y conviven sin estorbarse: Kafka ignora la creacion de
- * un tema que ya existe.
+ * forma correcta. Las dos vias son idempotentes y conviven sin estorbarse: Kafka ignora la
+ * creacion de un tema que ya existe.
+ *
+ * QUIEN MANDA. La fuente de verdad es infra/kafka/scripts/crear-topicos.sh, que es lo que ejecuta
+ * kafka-init. Los valores de aqui son una COPIA de los de ese script y tienen que coincidir
+ * exactamente (KafkaTopicsConfigTest lo vigila de este lado). La razon de que mande el script es
+ * que solo el aplica la configuracion a un tema que ya existe, con kafka-configs --alter:
+ * TopicBuilder solo crea, y KafkaAdmin deja intacto un tema existente aunque su retencion o su
+ * politica no coincidan con estas. Si alguna vez discrepan, se corrige esta clase.
+ *
+ * LAS DLT NO SE DECLARAN AQUI. reservations.events.DLT y audit.timeline.DLT las escriben los
+ * consumidores de ms-andesstay-report y ms-andesstay-audit; este servicio no las produce ni las
+ * lee. Las crea el script con el resto, con su propia retencion de 14 dias.
  *
  * TRES PARTICIONES. Es el paralelismo maximo del tema: tres consumidores del mismo grupo pueden
  * repartirse el trabajo, uno por particion. Como la clave es el reservationId, todos los eventos
@@ -34,9 +44,11 @@ import java.time.Duration;
  *
  * LAS POLITICAS DE RETENCION son distintas porque los dos temas responden preguntas distintas.
  * reservations.events es un registro de hechos que alimenta reportes recientes: siete dias bastan
- * y pasado ese plazo se borra. audit.timeline es el historial de quien hizo que: se compacta, de
- * modo que el ultimo evento de cada reserva se conserva aunque hayan pasado los treinta dias, y lo
- * que caduca es solo lo intermedio.
+ * y pasado ese plazo se borra. audit.timeline es el flujo de quien hizo que, con compact,delete y
+ * treinta dias: delete pone el techo y borra todo lo que supere los treinta dias, tambien el ultimo
+ * evento de cada reserva; compact reduce cada reserva a su evento mas reciente dentro de esa
+ * ventana. El historial completo no se guarda en Kafka sino en AUDIT_EVENTS, que escribe
+ * ms-andesstay-audit. El detalle esta en infra/docs/contracts/events/kafka.md.
  */
 @Configuration
 @ConditionalOnProperty(name = "andesstay.events.kafka.enabled", havingValue = "true")
