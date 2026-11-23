@@ -43,7 +43,12 @@ spring:
     # Lo único que se configura aquí es dónde está el clúster. Serializers, acks, idempotencia,
     # batching, compresión y max.block.ms viven en config/KafkaProducerConfig.java, comentados uno
     # a uno: son decisiones de diseño del productor y no parámetros de entorno.
-    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092}
+    #
+    # Los tres brokers del clúster local (infra/kafka/compose.yml), no solo el primero. El bootstrap
+    # solo sirve para descubrir el clúster, pero si la única dirección listada está caída al
+    # arrancar, el servicio no descubre nada aunque los otros dos estén en pie. Mismo valor que
+    # ms-andesstay-kafka. En contenedor manda KAFKA_BOOTSTRAP, con los listeners internos.
+    bootstrap-servers: ${KAFKA_BOOTSTRAP:localhost:9092,localhost:9093,localhost:9094}
 
   security:
     oauth2:
